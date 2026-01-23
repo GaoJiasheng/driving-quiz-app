@@ -218,13 +218,39 @@ GET /api/banks/:id/download
 
 ## 测试
 
-### 使用浏览器测试
+### 单元测试（推荐）
+
+```bash
+# 运行所有单元测试
+chmod +x run_tests.sh
+./run_tests.sh
+
+# 或者直接运行
+go test ./... -v
+
+# 查看测试覆盖率
+go test ./... -cover
+
+# 生成覆盖率报告
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+open coverage.html
+
+# 运行性能测试
+go test ./... -bench=. -benchmem
+```
+
+详细测试文档请查看：`TEST_README.md`
+
+### API接口测试
+
+#### 使用浏览器
 
 访问以下URL：
 - http://localhost:8080/api/health
 - http://localhost:8080/api/banks
 
-### 使用 curl 测试
+#### 使用 curl
 
 ```bash
 # 测试健康检查
@@ -247,6 +273,7 @@ curl http://localhost:8080/api/banks/demo_bank/download | jq
 - ✅ 错误处理
 - ✅ 日志输出
 - ✅ 完整的题库数据结构
+- ✅ **完整的单元测试**（覆盖率 > 85%）
 
 ## 下一步计划
 
