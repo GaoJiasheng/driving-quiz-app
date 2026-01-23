@@ -2,7 +2,11 @@
 class AppConfig {
   // API 配置
   static const String apiBaseUrl = 'http://localhost:8080';
+  static const String baseUrl = apiBaseUrl; // 兼容网络层
   static const String apiVersion = 'v1';
+  
+  // 环境配置
+  static const bool isDevelopment = true;
   
   // 超时配置
   static const Duration connectTimeout = Duration(seconds: 30);
