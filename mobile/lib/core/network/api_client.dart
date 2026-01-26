@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'api_endpoints.dart';
 import '../../config/app_config.dart';
+import '../../config/performance_config.dart';
 
 /// API 客户端
 /// 
@@ -13,15 +15,32 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl ?? AppConfig.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: Duration(milliseconds: PerformanceConfig.network.connectTimeout),
+        receiveTimeout: Duration(milliseconds: PerformanceConfig.network.receiveTimeout),
         sendTimeout: const Duration(seconds: 30),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        // 性能优化：启用持久连接
+        persistentConnection: true,
+        // 最大重定向次数
+        maxRedirects: 5,
+        // 跟随重定向
+        followRedirects: true,
       ),
     );
+
+    // 性能优化：配置HTTP适配器
+    if (_dio.httpClientAdapter case DefaultHttpClientAdapter adapter) {
+      adapter.onHttpClientCreate = (client) {
+        // 启用HTTP/2
+        client.connectionTimeout = Duration(milliseconds: PerformanceConfig.network.connectTimeout);
+        // 增加最大连接数
+        client.maxConnectionsPerHost = 5;
+        return client;
+      };
+    }
 
     // 添加日志拦截器（仅开发环境）
     if (AppConfig.isDevelopment) {

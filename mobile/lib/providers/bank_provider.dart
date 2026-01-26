@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/question_bank.dart';
 import '../data/repositories/bank_repository.dart';
@@ -6,23 +7,36 @@ import 'database_provider.dart';
 /// 本地题库列表Provider
 /// 
 /// 获取所有已下载到本地的题库
-final localBanksProvider = FutureProvider<List<QuestionBank>>((ref) async {
+/// 使用autoDispose自动释放不用的数据
+final localBanksProvider = FutureProvider.autoDispose<List<QuestionBank>>((ref) async {
   final repository = ref.watch(bankRepositoryProvider);
+  // 保持Provider活跃60秒，避免频繁重新加载
+  ref.keepAlive();
+  Timer(const Duration(seconds: 60), () {
+    ref.invalidateSelf();
+  });
   return await repository.getLocalBanks();
 });
 
 /// 远程题库列表Provider
 /// 
 /// 从服务器获取可用的题库列表
-final remoteBanksProvider = FutureProvider<List<QuestionBankInfo>>((ref) async {
+/// 使用autoDispose自动释放不用的数据
+final remoteBanksProvider = FutureProvider.autoDispose<List<QuestionBankInfo>>((ref) async {
   final repository = ref.watch(bankRepositoryProvider);
+  // 缓存远程数据60秒
+  ref.keepAlive();
+  Timer(const Duration(seconds: 60), () {
+    ref.invalidateSelf();
+  });
   return await repository.fetchBankList();
 });
 
 /// 指定题库Provider
 /// 
 /// 根据ID获取单个题库的详细信息
-final bankByIdProvider = FutureProvider.family<QuestionBank?, String>((ref, bankId) async {
+/// 使用autoDispose和family实现按需加载和缓存
+final bankByIdProvider = FutureProvider.autoDispose.family<QuestionBank?, String>((ref, bankId) async {
   final repository = ref.watch(bankRepositoryProvider);
   return await repository.getLocalBankById(bankId);
 });
@@ -30,7 +44,7 @@ final bankByIdProvider = FutureProvider.family<QuestionBank?, String>((ref, bank
 /// 题库下载状态Provider
 /// 
 /// 检查指定题库是否已下载
-final bankDownloadedProvider = FutureProvider.family<bool, String>((ref, bankId) async {
+final bankDownloadedProvider = FutureProvider.autoDispose.family<bool, String>((ref, bankId) async {
   final repository = ref.watch(bankRepositoryProvider);
   return await repository.isBankDownloaded(bankId);
 });

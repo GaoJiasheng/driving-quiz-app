@@ -55,6 +55,9 @@ dev_dependencies:
   
   # 应用图标
   flutter_launcher_icons: ^0.13.1
+  
+  # 启动页
+  flutter_native_splash: ^2.3.10
 
 flutter:
   uses-material-design: true
@@ -79,3 +82,21 @@ flutter_launcher_icons:
   image_path: "assets/images/app_icon.png"
   adaptive_icon_background: "#3B82F6"
   adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  
+  # macOS配置
+  macos:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+  
+# 启动页配置
+flutter_native_splash:
+  color: "#3B82F6"
+  image: assets/images/splash_icon.png
+  android: true
+  ios: true
+  web: false
+  
+  # Android 12+
+  android_12:
+    image: assets/images/splash_icon.png
+    color: "#3B82F6"

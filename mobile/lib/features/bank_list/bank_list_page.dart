@@ -23,25 +23,16 @@ class BankListPage extends ConsumerStatefulWidget {
 class _BankListPageState extends ConsumerState<BankListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final TextEditingController _searchController = TextEditingController();
-  bool _isSearching = false;
-  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
-    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -52,51 +43,10 @@ class _BankListPageState extends ConsumerState<BankListPage>
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: '搜索题库名称...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                  border: InputBorder.none,
-                ),
-              )
-            : const Text('驾考刷刷'),
-        centerTitle: true,
+        toolbarHeight: 0, // 隐藏标题栏，只保留bottom部分
         elevation: 0,
-        actions: [
-          // 搜索按钮
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _isSearching = false;
-                  _searchController.clear();
-                } else {
-                  _isSearching = true;
-                }
-              });
-            },
-            tooltip: _isSearching ? '取消搜索' : '搜索',
-          ),
-          // 刷新按钮
-          if (!_isSearching)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                // 刷新数据
-                ref.invalidate(localBanksProvider);
-                ref.invalidate(remoteBanksProvider);
-                ref.invalidate(overallStatsProvider);
-              },
-              tooltip: '刷新',
-            ),
-        ],
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(120.h),
+          preferredSize: Size.fromHeight(160.h), // 增加高度避免溢出
           child: Column(
             children: [
               // 统计卡片
@@ -241,28 +191,7 @@ class _BankListPageState extends ConsumerState<BankListPage>
       },
       child: localBanks.when(
         data: (banks) {
-          // 根据搜索查询过滤题库
-          final filteredBanks = _searchQuery.isEmpty
-              ? banks
-              : banks.where((bank) {
-                  return bank.name.toLowerCase().contains(_searchQuery) ||
-                      bank.description.toLowerCase().contains(_searchQuery);
-                }).toList();
-
-          if (filteredBanks.isEmpty) {
-            if (_searchQuery.isNotEmpty) {
-              return EmptyState(
-                icon: Icons.search_off,
-                title: '没有找到题库',
-                message: '试试其他关键词吧',
-                actionText: '清除搜索',
-                onAction: () {
-                  setState(() {
-                    _searchController.clear();
-                  });
-                },
-              );
-            }
+          if (banks.isEmpty) {
             return const EmptyState(
               icon: Icons.inventory_2_outlined,
               title: '还没有题库',
@@ -272,9 +201,9 @@ class _BankListPageState extends ConsumerState<BankListPage>
 
           return ListView.builder(
             padding: EdgeInsets.all(16.w),
-            itemCount: filteredBanks.length,
+            itemCount: banks.length,
             itemBuilder: (context, index) {
-              final bank = filteredBanks[index];
+              final bank = banks[index];
               return LocalBankCard(
                 bank: bank,
                 onTap: () {
@@ -364,29 +293,7 @@ class _BankListPageState extends ConsumerState<BankListPage>
       },
       child: remoteBanks.when(
         data: (banks) {
-          // 根据搜索查询过滤题库
-          final filteredBanks = _searchQuery.isEmpty
-              ? banks
-              : banks.where((bank) {
-                  return bank.name.toLowerCase().contains(_searchQuery) ||
-                      bank.description.toLowerCase().contains(_searchQuery) ||
-                      bank.language.toLowerCase().contains(_searchQuery);
-                }).toList();
-
-          if (filteredBanks.isEmpty) {
-            if (_searchQuery.isNotEmpty) {
-              return EmptyState(
-                icon: Icons.search_off,
-                title: '没有找到题库',
-                message: '试试其他关键词吧',
-                actionText: '清除搜索',
-                onAction: () {
-                  setState(() {
-                    _searchController.clear();
-                  });
-                },
-              );
-            }
+          if (banks.isEmpty) {
             return const EmptyState(
               icon: Icons.cloud_off_outlined,
               title: '暂无可用题库',
@@ -402,9 +309,9 @@ class _BankListPageState extends ConsumerState<BankListPage>
 
           return ListView.builder(
             padding: EdgeInsets.all(16.w),
-            itemCount: filteredBanks.length,
+            itemCount: banks.length,
             itemBuilder: (context, index) {
-              final bank = filteredBanks[index];
+              final bank = banks[index];
               final isDownloaded = downloadedIds.contains(bank.id);
 
               return RemoteBankCard(

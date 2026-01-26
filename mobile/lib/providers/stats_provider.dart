@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/bank_stats.dart';
 import '../data/repositories/stats_repository.dart';
@@ -8,31 +9,46 @@ import 'database_provider.dart';
 /// 指定题库的统计数据Provider
 /// 
 /// 根据题库ID获取该题库的统计信息
-final bankStatsProvider = FutureProvider.family<BankStats?, String>((ref, bankId) async {
+/// 使用autoDispose在不使用时自动释放
+final bankStatsProvider = FutureProvider.autoDispose.family<BankStats?, String>((ref, bankId) async {
   final repository = ref.watch(statsRepositoryProvider);
+  // 缓存30秒
+  ref.keepAlive();
+  Timer(const Duration(seconds: 30), () {
+    ref.invalidateSelf();
+  });
   return await repository.getBankStats(bankId);
 });
 
 /// 所有题库的统计数据列表Provider
-final allBankStatsProvider = FutureProvider<List<BankStats>>((ref) async {
+/// 使用autoDispose避免内存泄漏
+final allBankStatsProvider = FutureProvider.autoDispose<List<BankStats>>((ref) async {
   final repository = ref.watch(statsRepositoryProvider);
+  // 统计数据缓存30秒
+  ref.keepAlive();
+  Timer(const Duration(seconds: 30), () {
+    ref.invalidateSelf();
+  });
   return await repository.getAllBanksStats();
 });
 
 /// 指定题库的进度数据Provider
-final bankProgressProvider = FutureProvider.family<BankProgressData?, String>((ref, bankId) async {
+/// 使用autoDispose优化内存
+final bankProgressProvider = FutureProvider.autoDispose.family<BankProgressData?, String>((ref, bankId) async {
   final repository = ref.watch(answerRepositoryProvider);
   return await repository.getBankProgress(bankId);
 });
 
 /// 指定题库的错题列表Provider
-final wrongQuestionsProvider = FutureProvider.family<List<WrongQuestion>, String>((ref, bankId) async {
+/// 使用autoDispose避免内存泄漏
+final wrongQuestionsProvider = FutureProvider.autoDispose.family<List<WrongQuestion>, String>((ref, bankId) async {
   final repository = ref.watch(answerRepositoryProvider);
   return await repository.getWrongQuestions(bankId);
 });
 
 /// 指定题库的收藏列表Provider
-final favoritesProvider = FutureProvider.family<List<Favorite>, String>((ref, bankId) async {
+/// 使用autoDispose优化内存
+final favoritesProvider = FutureProvider.autoDispose.family<List<Favorite>, String>((ref, bankId) async {
   final repository = ref.watch(answerRepositoryProvider);
   return await repository.getFavorites(bankId);
 });

@@ -32,14 +32,85 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator m) async {
+        await m.createAll();
+        await _createIndices();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          // 升级到版本2：添加性能索引
+          await _createIndices();
+        }
+      },
+    );
+  }
+
+  /// 创建性能优化索引
+  Future<void> _createIndices() async {
+    // 为answer_records表添加索引
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_answer_records_bank_id 
+      ON answer_records(bank_id);
+    ''');
+    
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_answer_records_question_id 
+      ON answer_records(question_id);
+    ''');
+    
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_answer_records_answered_at 
+      ON answer_records(answered_at DESC);
+    ''');
+
+    // 为wrong_questions表添加索引
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_wrong_questions_bank_id 
+      ON wrong_questions(bank_id);
+    ''');
+    
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_wrong_questions_mastered 
+      ON wrong_questions(is_mastered);
+    ''');
+
+    // 为favorites表添加索引
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_favorites_bank_id 
+      ON favorites(bank_id);
+    ''');
+    
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_favorites_created_at 
+      ON favorites(created_at DESC);
+    ''');
+  }
 
   /// 打开数据库连接
   static LazyDatabase _openConnection() {
     return LazyDatabase(() async {
       final dbFolder = await getApplicationDocumentsDirectory();
       final file = File(p.join(dbFolder.path, 'quiz_app.db'));
-      return NativeDatabase(file);
+      
+      // 性能优化：配置SQLite参数
+      return NativeDatabase.createInBackground(
+        file,
+        setup: (rawDb) {
+          // 启用WAL模式（提升并发性能）
+          rawDb.execute('PRAGMA journal_mode = WAL;');
+          // 增加缓存大小
+          rawDb.execute('PRAGMA cache_size = 2000;');
+          // 优化同步模式（平衡性能和安全）
+          rawDb.execute('PRAGMA synchronous = NORMAL;');
+          // 优化临时存储（使用内存）
+          rawDb.execute('PRAGMA temp_store = MEMORY;');
+        },
+      );
     });
   }
 
