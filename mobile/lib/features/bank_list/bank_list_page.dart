@@ -46,7 +46,7 @@ class _BankListPageState extends ConsumerState<BankListPage>
         toolbarHeight: 0, // 隐藏标题栏，只保留bottom部分
         elevation: 0,
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(160.h), // 增加高度避免溢出
+          preferredSize: Size.fromHeight(175.h), // 增加高度避免溢出
           child: Column(
             children: [
               // 统计卡片
@@ -129,7 +129,7 @@ class _BankListPageState extends ConsumerState<BankListPage>
             _buildStatItem(
               icon: Icons.trending_up,
               label: '正确率',
-              value: '${(stats.overallAccuracy * 100).toStringAsFixed(0)}%',
+              value: '${stats.overallAccuracy.toStringAsFixed(0)}%',
             ),
           ],
         ),
@@ -207,16 +207,43 @@ class _BankListPageState extends ConsumerState<BankListPage>
               return LocalBankCard(
                 bank: bank,
                 onTap: () {
-                  // 选中题库并跳转到刷题页面
+                  // 选中题库并跳转到刷题页面（顺序模式）
                   ref.read(selectedBankIdProvider.notifier).state =
                       bank.id;
                   
-                  // 跳转到刷题页面
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => QuizPage(
                         bankId: bank.id,
                         mode: QuizMode.sequential,
+                      ),
+                    ),
+                  );
+                },
+                onWrongQuestions: () {
+                  // 跳转到错题模式
+                  ref.read(selectedBankIdProvider.notifier).state =
+                      bank.id;
+                  
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => QuizPage(
+                        bankId: bank.id,
+                        mode: QuizMode.wrongQuestions,
+                      ),
+                    ),
+                  );
+                },
+                onFavorites: () {
+                  // 跳转到收藏模式
+                  ref.read(selectedBankIdProvider.notifier).state =
+                      bank.id;
+                  
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => QuizPage(
+                        bankId: bank.id,
+                        mode: QuizMode.favorites,
                       ),
                     ),
                   );

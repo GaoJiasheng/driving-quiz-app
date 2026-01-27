@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../data/models/question_bank.dart';
 import '../../../providers/stats_provider.dart';
+import 'bank_options_sheet.dart';
 
 /// 本地题库卡片
 /// 
@@ -12,12 +13,16 @@ class LocalBankCard extends ConsumerWidget {
   final QuestionBank bank;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onWrongQuestions;
+  final VoidCallback? onFavorites;
 
   const LocalBankCard({
     super.key,
     required this.bank,
     required this.onTap,
     required this.onDelete,
+    this.onWrongQuestions,
+    this.onFavorites,
   });
 
   @override
@@ -77,6 +82,15 @@ class LocalBankCard extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  // 更多按钮
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    color: Theme.of(context).colorScheme.primary,
+                    onPressed: () {
+                      BankOptionsSheet.show(context, ref, bank.id, bank.name);
+                    },
+                    tooltip: '更多选项',
+                  ),
                   // 删除按钮
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
@@ -129,7 +143,7 @@ class LocalBankCard extends ConsumerWidget {
                             context,
                             icon: Icons.trending_up,
                             label: '正确率',
-                            value: '${(statsData.accuracy * 100).toStringAsFixed(0)}%',
+                            value: '${statsData.accuracy.toStringAsFixed(0)}%',
                             color: Colors.green,
                           ),
                           _buildStatChip(
@@ -138,6 +152,7 @@ class LocalBankCard extends ConsumerWidget {
                             label: '错题',
                             value: '${statsData.wrongQuestions}',
                             color: Colors.orange,
+                            onTap: onWrongQuestions,
                           ),
                           _buildStatChip(
                             context,
@@ -145,6 +160,7 @@ class LocalBankCard extends ConsumerWidget {
                             label: '收藏',
                             value: '${statsData.favorites}',
                             color: Colors.amber,
+                            onTap: onFavorites,
                           ),
                         ],
                       ),
@@ -200,8 +216,9 @@ class LocalBankCard extends ConsumerWidget {
     required String label,
     required String value,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Column(
+    final chip = Column(
       children: [
         Icon(icon, size: 16.sp, color: color),
         SizedBox(height: 2.h),
@@ -220,7 +237,47 @@ class LocalBankCard extends ConsumerWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
+        // 可点击提示
+        if (onTap != null)
+          Container(
+            margin: EdgeInsets.only(top: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4.r),
+            ),
+            child: Text(
+              '点击进入',
+              style: TextStyle(
+                fontSize: 8.sp,
+                color: color,
+              ),
+            ),
+          ),
       ],
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: color.withOpacity(0.3),
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: chip,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      child: chip,
     );
   }
 

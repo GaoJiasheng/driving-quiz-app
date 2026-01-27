@@ -4,8 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../providers/stats_provider.dart';
 import '../../providers/bank_provider.dart';
-import '../quiz/quiz_page.dart';
-import '../../providers/quiz_provider.dart';
+import '../bank_list/widgets/bank_options_sheet.dart';
 import 'widgets/overall_stats_card.dart';
 import 'widgets/bank_stats_card.dart';
 
@@ -115,7 +114,7 @@ class StatisticsPage extends ConsumerWidget {
                             bankId: stats.bankId,
                             bankName: bankName,
                             stats: stats,
-                            onTap: () => _showBankOptions(
+                            onTap: () => BankOptionsSheet.show(
                               context,
                               ref,
                               stats.bankId,
@@ -246,197 +245,6 @@ class StatisticsPage extends ConsumerWidget {
             error.toString(),
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBankOptions(
-    BuildContext context,
-    WidgetRef ref,
-    String bankId,
-    String bankName,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 标题
-            Padding(
-              padding: EdgeInsets.all(16.w),
-              child: Text(
-                bankName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ),
-            const Divider(height: 1),
-
-            // 继续刷题
-            ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: const Text('继续刷题'),
-              onTap: () async {
-                Navigator.of(context).pop();
-                
-                // 获取题库
-                final bank = await ref.read(bankByIdProvider(bankId).future);
-                
-                if (bank != null && context.mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => QuizPage(
-                        bankId: bankId,
-                        mode: QuizMode.sequential,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // 错题练习
-            ListTile(
-              leading: const Icon(Icons.error_outline, color: Colors.orange),
-              title: const Text('错题练习'),
-              onTap: () async {
-                Navigator.of(context).pop();
-                
-                final bank = await ref.read(bankByIdProvider(bankId).future);
-                
-                if (bank != null && context.mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => QuizPage(
-                        bankId: bankId,
-                        mode: QuizMode.wrongQuestions,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // 收藏练习
-            ListTile(
-              leading: const Icon(Icons.star, color: Colors.amber),
-              title: const Text('收藏练习'),
-              onTap: () async {
-                Navigator.of(context).pop();
-                
-                final bank = await ref.read(bankByIdProvider(bankId).future);
-                
-                if (bank != null && context.mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => QuizPage(
-                        bankId: bankId,
-                        mode: QuizMode.favorites,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // 随机练习
-            ListTile(
-              leading: const Icon(Icons.shuffle, color: Colors.blue),
-              title: const Text('随机练习'),
-              onTap: () async {
-                Navigator.of(context).pop();
-                
-                final bank = await ref.read(bankByIdProvider(bankId).future);
-                
-                if (bank != null && context.mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => QuizPage(
-                        bankId: bankId,
-                        mode: QuizMode.random,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // 重置进度
-            ListTile(
-              leading: const Icon(Icons.refresh, color: Colors.red),
-              title: const Text('重置进度'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _showResetConfirmDialog(context, ref, bankId, bankName);
-              },
-            ),
-
-            SizedBox(height: 8.h),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showResetConfirmDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String bankId,
-    String bankName,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重置进度'),
-        content: Text(
-          '确定要重置「$bankName」的答题进度吗？\n\n此操作将清除所有答题记录，但不会删除错题本和收藏。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-
-              // 显示加载
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              // 重置进度
-              final notifier = ref.read(bankResetProvider.notifier);
-              await notifier.resetBankProgress(bankId);
-
-              // 刷新数据
-              ref.invalidate(overallStatsProvider);
-              ref.invalidate(allBankStatsProvider);
-              ref.invalidate(bankStatsProvider(bankId));
-
-              // 关闭加载
-              if (context.mounted) {
-                Navigator.of(context).pop();
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('进度已重置')),
-                );
-              }
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('重置'),
           ),
         ],
       ),

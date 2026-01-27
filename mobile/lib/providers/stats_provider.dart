@@ -107,7 +107,7 @@ final overallStatsProvider = FutureProvider<OverallStats>((ref) async {
   int totalQuestions = allStats.fold(0, (sum, s) => sum + s.totalQuestions);
   int answeredQuestions = allStats.fold(0, (sum, s) => sum + s.answeredQuestions);
   int correctAnswers = allStats.fold(0, (sum, s) => sum + s.correctAnswers);
-  double overallAccuracy = answeredQuestions > 0 ? correctAnswers / answeredQuestions : 0.0;
+  double overallAccuracy = answeredQuestions > 0 ? (correctAnswers / answeredQuestions * 100) : 0.0;
   int totalWrongQuestions = allStats.fold(0, (sum, s) => sum + s.wrongQuestions);
   int totalFavorites = allStats.fold(0, (sum, s) => sum + s.favorites);
 

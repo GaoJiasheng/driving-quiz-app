@@ -37,20 +37,23 @@ class BankStats extends Equatable {
     required this.favoritesCount,
   });
 
-  /// 正确率（百分比）
+  /// 正确率（百分比 0-100）
   double get accuracy {
     if (answeredCount == 0) return 0.0;
     return (correctCount / answeredCount * 100);
   }
 
-  /// 进度百分比
+  /// 进度（小数 0.0-1.0，用于进度条）
   double get progress {
     if (totalQuestions == 0) return 0.0;
-    return (answeredCount / totalQuestions * 100);
+    return (answeredCount / totalQuestions);
   }
 
-  /// 完成率（别名，用于兼容）
+  /// 完成率（别名，用于兼容，小数 0.0-1.0）
   double get completionRate => progress;
+  
+  /// 进度百分比（0-100，用于显示文字）
+  double get progressPercentage => progress * 100;
 
   /// 正确答案数（别名，用于兼容）
   int get correctAnswers => correctCount;

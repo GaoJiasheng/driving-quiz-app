@@ -19,6 +19,9 @@ class AnswerRepository {
     required List<int> userAnswer,
     required bool isCorrect,
   }) async {
+    // 检查是否已有答题记录
+    final existingAnswer = await getAnswerRecord(bankId, questionId);
+    
     final companion = AnswerRecordsCompanion.insert(
       bankId: bankId,
       questionId: questionId,
@@ -37,8 +40,12 @@ class AnswerRepository {
       await addToWrongQuestions(bankId, questionId);
     }
 
-    // 更新题库进度
-    await _updateBankProgress(bankId, isCorrect);
+    // 更新题库进度（传入旧答案信息）
+    await _updateBankProgress(
+      bankId, 
+      isCorrect,
+      previousAnswer: existingAnswer,
+    );
   }
 
   /// 获取某题的答题记录
@@ -54,17 +61,44 @@ class AnswerRepository {
   }
 
   /// 更新题库进度
-  Future<void> _updateBankProgress(String bankId, bool isCorrect) async {
+  /// 
+  /// [previousAnswer] 之前的答题记录（如果有）
+  Future<void> _updateBankProgress(
+    String bankId, 
+    bool isCorrect, {
+    AnswerRecord? previousAnswer,
+  }) async {
     final existing = await (_database.select(_database.bankProgress)
           ..where((tbl) => tbl.bankId.equals(bankId)))
         .getSingleOrNull();
+
+    // 计算增量
+    int answeredDelta = previousAnswer == null ? 1 : 0; // 只有新题才+1
+    int correctDelta;
+    
+    if (previousAnswer == null) {
+      // 新题：根据是否正确决定
+      correctDelta = isCorrect ? 1 : 0;
+    } else {
+      // 重答：根据正确性变化调整
+      if (isCorrect && !previousAnswer.isCorrect) {
+        // 从错误变为正确：+1
+        correctDelta = 1;
+      } else if (!isCorrect && previousAnswer.isCorrect) {
+        // 从正确变为错误：-1
+        correctDelta = -1;
+      } else {
+        // 状态未变：0
+        correctDelta = 0;
+      }
+    }
 
     if (existing == null) {
       // 创建新进度记录
       final companion = BankProgressCompanion(
         bankId: drift.Value(bankId),
-        totalAnswered: drift.Value(1),
-        totalCorrect: drift.Value(isCorrect ? 1 : 0),
+        totalAnswered: drift.Value(answeredDelta),
+        totalCorrect: drift.Value(correctDelta > 0 ? correctDelta : 0),
         updatedAt: drift.Value(DateTime.now()),
       );
       await _database.into(_database.bankProgress).insert(companion);
@@ -72,12 +106,56 @@ class AnswerRepository {
       // 更新现有记录
       final companion = BankProgressCompanion(
         bankId: drift.Value(existing.bankId),
-        totalAnswered: drift.Value(existing.totalAnswered + 1),
-        totalCorrect: drift.Value(existing.totalCorrect + (isCorrect ? 1 : 0)),
+        totalAnswered: drift.Value(existing.totalAnswered + answeredDelta),
+        totalCorrect: drift.Value((existing.totalCorrect + correctDelta).clamp(0, 99999)),
         updatedAt: drift.Value(DateTime.now()),
       );
       await _database.update(_database.bankProgress).replace(companion);
     }
+  }
+
+  /// 修复题库进度统计（重新计算）
+  /// 
+  /// 用于修复因重复答题导致的统计错误
+  Future<void> fixBankProgress(String bankId) async {
+    // 获取该题库的所有答题记录
+    final query = _database.select(_database.answerRecords)
+      ..where((tbl) => tbl.bankId.equals(bankId));
+    final records = await query.get();
+    
+    // 统计唯一题目
+    final uniqueQuestions = <String>{};
+    int correctCount = 0;
+    
+    for (final record in records) {
+      uniqueQuestions.add(record.questionId);
+      if (record.isCorrect) {
+        correctCount++;
+      }
+    }
+    
+    // 更新进度
+    final existing = await (_database.select(_database.bankProgress)
+          ..where((tbl) => tbl.bankId.equals(bankId)))
+        .getSingleOrNull();
+    
+    final companion = BankProgressCompanion(
+      bankId: drift.Value(bankId),
+      totalAnswered: drift.Value(uniqueQuestions.length),
+      totalCorrect: drift.Value(correctCount),
+      updatedAt: drift.Value(DateTime.now()),
+    );
+    
+    if (existing == null) {
+      await _database.into(_database.bankProgress).insert(companion);
+    } else {
+      await _database.update(_database.bankProgress).replace(companion);
+    }
+    
+    print('✅ 修复完成：题库 $bankId');
+    print('   - 答题数: ${uniqueQuestions.length}');
+    print('   - 正确数: $correctCount');
+    print('   - 正确率: ${uniqueQuestions.length > 0 ? (correctCount / uniqueQuestions.length * 100).toStringAsFixed(1) : 0}%');
   }
 
   // ========== 错题本 ==========

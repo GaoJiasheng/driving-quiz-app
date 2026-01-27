@@ -144,7 +144,7 @@ class BankStatsCard extends StatelessWidget {
                     context,
                     icon: Icons.trending_up,
                     label: '正确率',
-                    value: '${(stats.accuracy * 100).toStringAsFixed(0)}%',
+                    value: '${stats.accuracy.toStringAsFixed(0)}%',
                     color: Colors.blue,
                   ),
                   _buildStatChip(
@@ -240,20 +240,20 @@ class BankStatsCard extends StatelessWidget {
   }
 
   Widget _buildGradeBadge(BuildContext context) {
-    final accuracy = stats.accuracy;
+    final accuracy = stats.accuracy; // 0-100
     String grade;
     Color color;
 
-    if (accuracy >= 0.9) {
+    if (accuracy >= 90) {
       grade = 'A+';
       color = Colors.green;
-    } else if (accuracy >= 0.8) {
+    } else if (accuracy >= 80) {
       grade = 'A';
       color = Colors.lightGreen;
-    } else if (accuracy >= 0.7) {
+    } else if (accuracy >= 70) {
       grade = 'B';
       color = Colors.blue;
-    } else if (accuracy >= 0.6) {
+    } else if (accuracy >= 60) {
       grade = 'C';
       color = Colors.orange;
     } else {

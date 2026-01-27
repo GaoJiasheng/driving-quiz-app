@@ -8,6 +8,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/bank_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../data/repositories/answer_repository.dart';
 
 /// 设置页面
 /// 
@@ -52,6 +53,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           // 数据管理
           _buildSectionHeader('数据管理'),
+          _buildFixStatsTile(),
           _buildClearCacheTile(),
           _buildResetProgressTile(),
           _buildDeleteDatabaseTile(),
@@ -113,6 +115,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             );
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildFixStatsTile() {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+      child: ListTile(
+        leading: Icon(
+          Icons.build,
+          color: Colors.blue,
+        ),
+        title: const Text('修复统计数据'),
+        subtitle: const Text('修复因重复答题导致的统计错误'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _showFixStatsDialog(),
       ),
     );
   }
@@ -222,6 +240,85 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   // 清除缓存对话框
+  void _showFixStatsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.build, color: Colors.blue),
+            SizedBox(width: 8.w),
+            const Text('修复统计数据'),
+          ],
+        ),
+        content: const Text(
+          '检测到统计数据异常（正确率超过100%）。\n\n'
+          '这是由于重复答题时统计累加错误导致的。\n\n'
+          '点击"修复"将重新计算所有题库的统计数据。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+
+              // 显示加载对话框
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                // 获取数据库实例
+                final database = ref.read(databaseProvider);
+                final answerRepo = AnswerRepository(database: database);
+                
+                // 获取所有题库
+                final allStats = await ref.read(allBankStatsProvider.future);
+                
+                // 修复每个题库的统计
+                for (final stats in allStats) {
+                  await answerRepo.fixBankProgress(stats.bankId);
+                }
+
+                // 刷新统计
+                ref.invalidate(overallStatsProvider);
+                ref.invalidate(allBankStatsProvider);
+
+                if (mounted) {
+                  Navigator.of(context).pop(); // 关闭加载对话框
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('统计数据已修复'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.of(context).pop(); // 关闭加载对话框
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('修复失败: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('修复'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showClearCacheDialog() {
     showDialog(
       context: context,

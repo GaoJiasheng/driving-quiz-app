@@ -127,8 +127,10 @@ class _QuestionCardState extends ConsumerState<QuestionCard> {
 
           SizedBox(height: 16.h),
 
-          // 提交按钮（未答题时显示）
-          if (!hasAnswered && _selectedOptions.isNotEmpty)
+          // 提交按钮（仅多选题未答题时显示）
+          if (!hasAnswered && 
+              _selectedOptions.isNotEmpty && 
+              widget.question.questionType == QuestionType.multiple)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -235,6 +237,11 @@ class _QuestionCardState extends ConsumerState<QuestionCard> {
         }
       }
     });
+
+    // 单选题和判断题：选择后立即提交
+    if (type == QuestionType.single || type == QuestionType.judge) {
+      _submitAnswer();
+    }
   }
 
   Future<void> _submitAnswer() async {

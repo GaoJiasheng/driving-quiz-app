@@ -276,7 +276,7 @@ class _OverallStatsTest extends ConsumerWidget {
           Text('• 题库总数: ${stats.totalBanks}'),
           Text('• 题目总数: ${stats.totalQuestions}'),
           Text('• 已答题数: ${stats.answeredQuestions}'),
-          Text('• 正确率: ${(stats.overallAccuracy * 100).toStringAsFixed(1)}%'),
+          Text('• 正确率: ${stats.overallAccuracy.toStringAsFixed(1)}%'),
         ],
       ),
       loading: () => const Row(

@@ -124,7 +124,7 @@ class OverallStatsCard extends StatelessWidget {
                         context,
                         icon: Icons.trending_up,
                         label: '总体正确率',
-                        value: '${(stats.overallAccuracy * 100).toStringAsFixed(1)}%',
+                        value: '${stats.overallAccuracy.toStringAsFixed(1)}%',
                         subtitle: '${stats.correctAnswers}/${stats.answeredQuestions}',
                       ),
                     ),
@@ -223,20 +223,20 @@ class OverallStatsCard extends StatelessWidget {
   }
 
   Widget _buildAchievementBadge(BuildContext context) {
-    final accuracy = stats.overallAccuracy;
+    final accuracy = stats.overallAccuracy; // 0-100
     IconData icon;
     String label;
     Color color;
 
-    if (accuracy >= 0.9) {
+    if (accuracy >= 90) {
       icon = Icons.workspace_premium;
       label = '学霸';
       color = Colors.amber;
-    } else if (accuracy >= 0.8) {
+    } else if (accuracy >= 80) {
       icon = Icons.military_tech;
       label = '优秀';
       color = Colors.orange;
-    } else if (accuracy >= 0.7) {
+    } else if (accuracy >= 70) {
       icon = Icons.star;
       label = '良好';
       color = Colors.lightBlue;
@@ -279,16 +279,16 @@ class OverallStatsCard extends StatelessWidget {
       return '开始你的学习之旅吧！';
     }
 
-    final accuracy = stats.overallAccuracy;
-    final completion = stats.completionRate;
+    final accuracy = stats.overallAccuracy; // 0-100
+    final completion = stats.completionRate; // 0.0-1.0
 
     if (completion >= 0.9) {
       return '太棒了！即将完成所有题目！';
     } else if (completion >= 0.5) {
       return '已经完成一半了，继续加油！';
-    } else if (accuracy >= 0.9) {
+    } else if (accuracy >= 90) {
       return '正确率很高，表现优秀！';
-    } else if (accuracy >= 0.7) {
+    } else if (accuracy >= 70) {
       return '保持这个势头，稳步前进！';
     } else {
       return '持续练习，你会越来越好！';

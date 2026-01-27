@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/question.dart';
 import '../data/models/question_bank.dart';
@@ -28,6 +30,9 @@ class QuizState {
   /// 题目列表（根据模式过滤后的）
   final List<Question> questions;
   
+  /// 全部题目列表（用于答题卡显示）
+  final List<Question> allQuestions;
+  
   /// 当前题目索引
   final int currentIndex;
   
@@ -40,6 +45,9 @@ class QuizState {
   /// 刷题模式
   final QuizMode mode;
   
+  /// 错题ID集合（用于答题卡标记）
+  final Set<String> wrongQuestionIds;
+  
   /// 是否正在加载
   final bool isLoading;
   
@@ -49,10 +57,12 @@ class QuizState {
   QuizState({
     this.bank,
     this.questions = const [],
+    this.allQuestions = const [],
     this.currentIndex = 0,
     this.userAnswers = const {},
     this.showAnswer = false,
     this.mode = QuizMode.sequential,
+    this.wrongQuestionIds = const {},
     this.isLoading = false,
     this.error,
   });
@@ -108,20 +118,27 @@ class QuizState {
   QuizState copyWith({
     QuestionBank? bank,
     List<Question>? questions,
+    List<Question>? allQuestions,
     int? currentIndex,
     Map<String, List<int>>? userAnswers,
     bool? showAnswer,
     QuizMode? mode,
+    Set<String>? wrongQuestionIds,
     bool? isLoading,
     String? error,
+    bool resetWrongQuestionIds = false,
   }) {
     return QuizState(
       bank: bank ?? this.bank,
       questions: questions ?? this.questions,
+      allQuestions: allQuestions ?? this.allQuestions,
       currentIndex: currentIndex ?? this.currentIndex,
       userAnswers: userAnswers ?? this.userAnswers,
       showAnswer: showAnswer ?? this.showAnswer,
       mode: mode ?? this.mode,
+      wrongQuestionIds: resetWrongQuestionIds 
+          ? const {} 
+          : (wrongQuestionIds ?? this.wrongQuestionIds),
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -145,39 +162,76 @@ class QuizNotifier extends StateNotifier<QuizState> {
     );
 
     try {
-      List<Question> questions = bank.questions ?? [];
+      final allQuestions = bank.questions ?? [];
+      List<Question> questions = allQuestions;
+      Set<String> wrongQuestionIds = {};
 
       // 根据模式过滤题目
       switch (mode) {
         case QuizMode.sequential:
           // 顺序模式，保持原样
+          questions = List<Question>.from(allQuestions);
           break;
 
         case QuizMode.random:
           // 随机模式，打乱顺序
-          questions = List<Question>.from(questions)..shuffle();
+          questions = List<Question>.from(allQuestions)..shuffle();
           break;
 
         case QuizMode.wrongQuestions:
-          // 错题模式，只显示错题本中的题目
+          // 错题模式，只显示错题
           final wrongQuestions = await _answerRepository.getWrongQuestions(bank.id);
-          final wrongQuestionIds = wrongQuestions.map((e) => e.questionId).toSet();
-          questions = questions.where((q) => wrongQuestionIds.contains(q.id)).toList();
+          wrongQuestionIds = wrongQuestions.map((e) => e.questionId).toSet();
+          // 过滤只显示错题
+          questions = allQuestions.where((q) => wrongQuestionIds.contains(q.id)).toList();
           break;
 
         case QuizMode.favorites:
           // 收藏模式，只显示收藏的题目
           final favorites = await _answerRepository.getFavorites(bank.id);
           final favoriteIds = favorites.map((e) => e.questionId).toSet();
-          questions = questions.where((q) => favoriteIds.contains(q.id)).toList();
+          questions = allQuestions.where((q) => favoriteIds.contains(q.id)).toList();
           break;
+      }
+
+      // 加载之前的答题记录
+      final Map<String, List<int>> userAnswers = {};
+      int currentIndex = 0;
+      
+      for (int i = 0; i < questions.length; i++) {
+        final question = questions[i];
+        final record = await _answerRepository.getAnswerRecord(bank.id, question.id);
+        if (record != null) {
+          // 解析用户答案
+          try {
+            final answerJson = record.userAnswer;
+            if (answerJson != null && answerJson.isNotEmpty) {
+              final dynamic decoded = jsonDecode(answerJson);
+              if (decoded is List) {
+                userAnswers[question.id] = List<int>.from(decoded);
+                // 更新当前位置为最后答过的题目的下一题
+                currentIndex = i + 1;
+              }
+            }
+          } catch (e) {
+            print('解析答题记录失败: $e');
+          }
+        }
+      }
+      
+      // 如果所有题都答过了，回到第一题
+      if (currentIndex >= questions.length) {
+        currentIndex = 0;
       }
 
       state = QuizState(
         bank: bank,
         questions: questions,
-        currentIndex: 0,
+        allQuestions: allQuestions,
+        currentIndex: currentIndex,
+        userAnswers: userAnswers,
         mode: mode,
+        wrongQuestionIds: wrongQuestionIds,
         isLoading: false,
       );
     } catch (e) {
@@ -202,6 +256,13 @@ class QuizNotifier extends StateNotifier<QuizState> {
     final correctAnswerSorted = List<int>.from(question.answer)..sort();
     final isCorrect = userAnswerSorted.length == correctAnswerSorted.length &&
         userAnswerSorted.every((e) => correctAnswerSorted.contains(e));
+
+    // 调试信息
+    print('📝 答题判断:');
+    print('   题目: ${question.question.substring(0, question.question.length > 20 ? 20 : question.question.length)}...');
+    print('   用户答案: $userAnswerSorted');
+    print('   正确答案: $correctAnswerSorted');
+    print('   判断结果: ${isCorrect ? "✅ 正确" : "❌ 错误"}');
 
     // 保存答题记录
     await _answerRepository.saveAnswerRecord(

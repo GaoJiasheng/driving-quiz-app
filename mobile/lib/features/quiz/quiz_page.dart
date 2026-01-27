@@ -27,6 +27,7 @@ class QuizPage extends ConsumerStatefulWidget {
 
 class _QuizPageState extends ConsumerState<QuizPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  PageController? _pageController;
   bool _isInitialized = false;
 
   @override
@@ -38,23 +39,52 @@ class _QuizPageState extends ConsumerState<QuizPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeQuiz() async {
     if (_isInitialized) return;
 
-    // 获取题库
-    final bank = await ref.read(bankByIdProvider(widget.bankId).future);
+    try {
+      print('🔍 开始初始化刷题，题库ID: ${widget.bankId}, 模式: ${widget.mode}');
+      
+      // 获取题库
+      final bank = await ref.read(bankByIdProvider(widget.bankId).future);
+      print('📚 题库加载结果: ${bank?.name}, 题目数: ${bank?.questions?.length}');
 
-    if (bank != null && mounted) {
-      // 开始刷题
-      final quizNotifier = ref.read(quizProvider.notifier);
-      await quizNotifier.startQuiz(bank, mode: widget.mode);
-      setState(() => _isInitialized = true);
-    } else if (mounted) {
-      // 题库不存在，返回
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('题库不存在')),
-      );
-      Navigator.of(context).pop();
+      if (bank != null && mounted) {
+        // 开始刷题
+        final quizNotifier = ref.read(quizProvider.notifier);
+        await quizNotifier.startQuiz(bank, mode: widget.mode);
+        
+        // 初始化PageController
+        final quizState = ref.read(quizProvider);
+        print('✅ 刷题初始化完成，题目数: ${quizState.questions.length}');
+        _pageController = PageController(initialPage: quizState.currentIndex);
+        
+        if (mounted) {
+          setState(() => _isInitialized = true);
+        }
+      } else if (mounted) {
+        // 题库不存在，返回
+        print('❌ 题库不存在');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('题库不存在')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e, stack) {
+      print('❌ 初始化刷题失败: $e');
+      print('Stack trace: $stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载失败: $e')),
+        );
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -62,8 +92,20 @@ class _QuizPageState extends ConsumerState<QuizPage> {
   Widget build(BuildContext context) {
     final quizState = ref.watch(quizProvider);
 
+    // 同步PageController的页面到当前题目索引
+    if (_isInitialized && 
+        _pageController != null &&
+        _pageController!.hasClients && 
+        _pageController!.page?.round() != quizState.currentIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController != null && _pageController!.hasClients) {
+          _pageController!.jumpToPage(quizState.currentIndex);
+        }
+      });
+    }
+
     // 加载中
-    if (quizState.isLoading || !_isInitialized) {
+    if (quizState.isLoading || !_isInitialized || _pageController == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('加载中...')),
         body: const Center(child: CircularProgressIndicator()),
@@ -126,59 +168,63 @@ class _QuizPageState extends ConsumerState<QuizPage> {
       );
     }
 
-    return WillPopScope(
-      onWillPop: () => _onWillPop(context),
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Theme.of(context).colorScheme.background,
-        appBar: AppBar(
-          title: Text(
-            quizState.bank?.name ?? '刷题',
-            style: const TextStyle(fontSize: 18),
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // 直接重置并返回，不需要确认
+            ref.read(quizProvider.notifier).reset();
+            Navigator.of(context).pop();
+          },
+        ),
+        title: Text(
+          quizState.bank?.name ?? '刷题',
+          style: const TextStyle(fontSize: 18),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        actions: [
+          // 答题卡按钮
+          IconButton(
+            icon: const Icon(Icons.grid_view),
+            onPressed: () {
+              _scaffoldKey.currentState?.openEndDrawer();
+            },
+            tooltip: '答题卡',
           ),
-          centerTitle: true,
-          elevation: 0,
-          actions: [
-            // 答题卡按钮
-            IconButton(
-              icon: const Icon(Icons.grid_view),
-              onPressed: () {
-                _scaffoldKey.currentState?.openEndDrawer();
+        ],
+      ),
+      endDrawer: const QuizDrawer(),
+      body: Column(
+        children: [
+          // 进度条
+          _buildProgressBar(quizState),
+
+          // 题目卡片
+          Expanded(
+            child: PageView.builder(
+              itemCount: quizState.totalQuestions,
+              controller: _pageController!,
+              onPageChanged: (index) {
+                ref.read(quizProvider.notifier).goToQuestion(index);
               },
-              tooltip: '答题卡',
+              itemBuilder: (context, index) {
+                return QuestionCard(
+                  key: ValueKey(quizState.questions[index].id), // 添加key避免状态复用
+                  question: quizState.questions[index],
+                  questionNumber: index + 1,
+                  totalQuestions: quizState.totalQuestions,
+                );
+              },
             ),
-          ],
-        ),
-        endDrawer: const QuizDrawer(),
-        body: Column(
-          children: [
-            // 进度条
-            _buildProgressBar(quizState),
+          ),
 
-            // 题目卡片
-            Expanded(
-              child: PageView.builder(
-                itemCount: quizState.totalQuestions,
-                controller: PageController(
-                  initialPage: quizState.currentIndex,
-                ),
-                onPageChanged: (index) {
-                  ref.read(quizProvider.notifier).goToQuestion(index);
-                },
-                itemBuilder: (context, index) {
-                  return QuestionCard(
-                    question: quizState.questions[index],
-                    questionNumber: index + 1,
-                    totalQuestions: quizState.totalQuestions,
-                  );
-                },
-              ),
-            ),
-
-            // 底部操作栏
-            const QuizBottomBar(),
-          ],
-        ),
+          // 底部操作栏
+          const QuizBottomBar(),
+        ],
       ),
     );
   }
@@ -227,30 +273,4 @@ class _QuizPageState extends ConsumerState<QuizPage> {
     }
   }
 
-  Future<bool> _onWillPop(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出刷题'),
-        content: const Text('确定要退出吗？当前进度会保存。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('继续刷题'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('退出'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      // 重置刷题状态
-      ref.read(quizProvider.notifier).reset();
-    }
-
-    return confirmed ?? false;
-  }
 }
