@@ -195,33 +195,37 @@ class QuizNotifier extends StateNotifier<QuizState> {
       }
 
       // 加载之前的答题记录
+      // 注意：错题模式和收藏模式下不加载历史答案，让用户重新答题
       final Map<String, List<int>> userAnswers = {};
       int currentIndex = 0;
       
-      for (int i = 0; i < questions.length; i++) {
-        final question = questions[i];
-        final record = await _answerRepository.getAnswerRecord(bank.id, question.id);
-        if (record != null) {
-          // 解析用户答案
-          try {
-            final answerJson = record.userAnswer;
-            if (answerJson != null && answerJson.isNotEmpty) {
-              final dynamic decoded = jsonDecode(answerJson);
-              if (decoded is List) {
-                userAnswers[question.id] = List<int>.from(decoded);
-                // 更新当前位置为最后答过的题目的下一题
-                currentIndex = i + 1;
+      // 只在顺序模式和随机模式下加载历史答案
+      if (mode == QuizMode.sequential || mode == QuizMode.random) {
+        for (int i = 0; i < questions.length; i++) {
+          final question = questions[i];
+          final record = await _answerRepository.getAnswerRecord(bank.id, question.id);
+          if (record != null) {
+            // 解析用户答案
+            try {
+              final answerJson = record.userAnswer;
+              if (answerJson != null && answerJson.isNotEmpty) {
+                final dynamic decoded = jsonDecode(answerJson);
+                if (decoded is List) {
+                  userAnswers[question.id] = List<int>.from(decoded);
+                  // 更新当前位置为最后答过的题目的下一题
+                  currentIndex = i + 1;
+                }
               }
+            } catch (e) {
+              print('解析答题记录失败: $e');
             }
-          } catch (e) {
-            print('解析答题记录失败: $e');
           }
         }
-      }
-      
-      // 如果所有题都答过了，回到第一题
-      if (currentIndex >= questions.length) {
-        currentIndex = 0;
+        
+        // 如果所有题都答过了，回到第一题
+        if (currentIndex >= questions.length) {
+          currentIndex = 0;
+        }
       }
 
       state = QuizState(
@@ -350,6 +354,25 @@ class QuizNotifier extends StateNotifier<QuizState> {
     if (question == null || bank == null) return;
 
     await _answerRepository.markWrongQuestionAsMastered(bank.id, question.id);
+
+    // 如果是错题模式，从列表中移除该题
+    if (state.mode == QuizMode.wrongQuestions) {
+       final newQuestions = List<Question>.from(state.questions);
+       newQuestions.removeAt(state.currentIndex);
+       
+       final newTotal = newQuestions.length;
+       int newIndex = state.currentIndex;
+       
+       // 如果当前索引超出了新列表范围（例如删除了最后一题），则前移
+       if (newIndex >= newTotal) {
+         newIndex = newTotal > 0 ? newTotal - 1 : 0;
+       }
+       
+       state = state.copyWith(
+         questions: newQuestions,
+         currentIndex: newIndex,
+       );
+    }
   }
 }
 

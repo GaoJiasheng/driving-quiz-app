@@ -80,6 +80,9 @@ class _QuestionCardState extends ConsumerState<QuestionCard> {
               const Spacer(),
               // 收藏按钮
               _buildFavoriteButton(),
+              // 移除错题按钮（仅在错题模式显示）
+              if (ref.watch(quizProvider).mode == QuizMode.wrongQuestions)
+                _buildMasteredButton(),
             ],
           ),
 
@@ -254,5 +257,46 @@ class _QuestionCardState extends ConsumerState<QuestionCard> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Widget _buildMasteredButton() {
+    return IconButton(
+      icon: Icon(
+        Icons.delete_outline,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      onPressed: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('移除错题'),
+            content: const Text('确定要将此题移出错题本吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('移除'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true && mounted) {
+          final notifier = ref.read(quizProvider.notifier);
+          await notifier.markAsMastered();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('已从错题本移除')),
+            );
+            // 不需要手动跳到下一题，因为列表更新后，当前索引对应的就是下一题
+          }
+        }
+      },
+      tooltip: '移除错题',
+    );
   }
 }

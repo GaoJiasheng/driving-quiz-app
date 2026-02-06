@@ -206,12 +206,12 @@ class _BankListPageState extends ConsumerState<BankListPage>
               final bank = banks[index];
               return LocalBankCard(
                 bank: bank,
-                onTap: () {
+                onTap: () async {
                   // 选中题库并跳转到刷题页面（顺序模式）
                   ref.read(selectedBankIdProvider.notifier).state =
                       bank.id;
                   
-                  Navigator.of(context).push(
+                  final shouldRefresh = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
                       builder: (context) => QuizPage(
                         bankId: bank.id,
@@ -219,13 +219,19 @@ class _BankListPageState extends ConsumerState<BankListPage>
                       ),
                     ),
                   );
+                  
+                  // 如果需要刷新，则刷新统计数据
+                  if (shouldRefresh == true && context.mounted) {
+                    ref.invalidate(bankStatsProvider(bank.id));
+                    ref.invalidate(overallStatsProvider);
+                  }
                 },
-                onWrongQuestions: () {
+                onWrongQuestions: () async {
                   // 跳转到错题模式
                   ref.read(selectedBankIdProvider.notifier).state =
                       bank.id;
                   
-                  Navigator.of(context).push(
+                  final shouldRefresh = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
                       builder: (context) => QuizPage(
                         bankId: bank.id,
@@ -233,13 +239,19 @@ class _BankListPageState extends ConsumerState<BankListPage>
                       ),
                     ),
                   );
+                  
+                  // 如果需要刷新，则刷新统计数据
+                  if (shouldRefresh == true && context.mounted) {
+                    ref.invalidate(bankStatsProvider(bank.id));
+                    ref.invalidate(overallStatsProvider);
+                  }
                 },
-                onFavorites: () {
+                onFavorites: () async {
                   // 跳转到收藏模式
                   ref.read(selectedBankIdProvider.notifier).state =
                       bank.id;
                   
-                  Navigator.of(context).push(
+                  final shouldRefresh = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
                       builder: (context) => QuizPage(
                         bankId: bank.id,
@@ -247,6 +259,12 @@ class _BankListPageState extends ConsumerState<BankListPage>
                       ),
                     ),
                   );
+                  
+                  // 如果需要刷新，则刷新统计数据
+                  if (shouldRefresh == true && context.mounted) {
+                    ref.invalidate(bankStatsProvider(bank.id));
+                    ref.invalidate(overallStatsProvider);
+                  }
                 },
                 onDelete: () async {
                   // 确认删除

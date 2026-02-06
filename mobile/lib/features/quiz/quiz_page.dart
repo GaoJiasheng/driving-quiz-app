@@ -74,7 +74,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('题库不存在')),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true); // 返回并刷新统计
       }
     } catch (e, stack) {
       print('❌ 初始化刷题失败: $e');
@@ -83,7 +83,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('加载失败: $e')),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true); // 返回并刷新统计
       }
     }
   }
@@ -129,7 +129,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
               Text(quizState.error!),
               SizedBox(height: 16.h),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).pop(true), // 返回并刷新统计
                 child: const Text('返回'),
               ),
             ],
@@ -159,7 +159,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
               ),
               SizedBox(height: 16.h),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).pop(true), // 返回并刷新统计
                 child: const Text('返回'),
               ),
             ],
@@ -177,7 +177,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
           onPressed: () {
             // 直接重置并返回，不需要确认
             ref.read(quizProvider.notifier).reset();
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true); // 返回并刷新统计
           },
         ),
         title: Text(
